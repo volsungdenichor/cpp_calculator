@@ -13,3 +13,4 @@ include_directories(
 )
 
 target_link_libraries(cpp_calculator_tests gtest_main gmock_main)
+add_test(NAME cpp_calculator_tests COMMAND cpp_calculator_tests)
