@@ -1,15 +1,16 @@
 #include <cmath>
 #include <deque>
+#include <iomanip>
 #include <iostream>
 
 #include "ansi.hpp"
 #include "calc.hpp"
 
-std::string read_line(std::istream& is, std::function<void(std::ostream& os)> prompt)
+std::string read_line(std::function<void(std::ostream& os)> prompt)
 {
     prompt(std::cout);
     std::string line;
-    std::getline(is, line);
+    std::getline(std::cin, line);
     return line;
 }
 
@@ -45,7 +46,7 @@ int main(int argc, char* argv[])
 
     while (true)
     {
-        const auto line = read_line(std::cin, [](std::ostream& os) { os << fg(color::green) << "> "; });
+        const auto line = read_line([](std::ostream& os) { os << fg(color::green) << "> "; });
         if (line == "quit")
         {
             break;
@@ -59,9 +60,10 @@ int main(int argc, char* argv[])
         }
         else if (line == "history")
         {
-            for (const auto& [expr, result] : history.entries)
+            int i = 0;
+            for (const auto& entry : history.entries)
             {
-                std::cout << "  " << expr << " = " << result << std::endl;
+                std::cout << std::setw(2) << i++ << ". " << entry.expr << " = " << entry.result << std::endl;
             }
         }
         else
