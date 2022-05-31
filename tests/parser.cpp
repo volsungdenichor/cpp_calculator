@@ -55,4 +55,5 @@ TEST(parser, operator_precedence)
     ASSERT_THAT(eval("2 * 10 ^ 3"), 8000);
     ASSERT_THAT(eval("+(1 + 3)"), 4);
     ASSERT_THAT(eval("-(1 + 3)"), -4);
+    ASSERT_THAT(eval("-2 * 3"), -6);
 }
