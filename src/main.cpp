@@ -5,13 +5,14 @@
 
 #include "ansi.hpp"
 #include "calc.hpp"
+#include "string_utils.hpp"
 
 std::string read_line(std::function<void(std::ostream& os)> prompt)
 {
     prompt(std::cout);
     std::string line;
     std::getline(std::cin, line);
-    return line;
+    return std::string{ calc::trim_whitespace(line) };
 }
 
 struct History
@@ -41,7 +42,7 @@ int main(int argc, char* argv[])
 
     auto history = History{ 10 };
     calc::Context ctx{
-        { { "pi", std::asin(1) * 2 } }
+        { { "pi", std::asin(1.0) * 2.0 } }
     };
 
     while (true)
@@ -52,7 +53,7 @@ int main(int argc, char* argv[])
             break;
         }
         else if (line == "vars")
-        {
+        {q
             for (const auto& [n, v] : ctx.vars)
             {
                 std::cout << "  " << n << " = " << v << std::endl;
