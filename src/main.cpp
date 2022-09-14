@@ -76,12 +76,16 @@ int main(int argc, char* argv[])
                     const auto res = expr->eval(ctx);
                     ctx.vars.insert_or_assign("ans", res);
                     history.push(line, res);
-                    std::cout << fg(color::yellow) << "ans = " << res << reset << std::endl;
+                    std::cout << fg(color::yellow) << "ans = " << res << reset << '\n';
+                }
+                else
+                {
+                    std::cout << "cannot parse expression" << '\n';
                 }
             }
             catch (const std::exception& ex)
             {
-                std::cerr << "exception: " << ex.what() << '\n';
+                std::cout << "exception: " << ex.what() << '\n';
             }
         }
     }
