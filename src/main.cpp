@@ -53,7 +53,7 @@ int main(int argc, char* argv[])
             break;
         }
         else if (line == "vars")
-        {q
+        {
             for (const auto& [n, v] : ctx.vars)
             {
                 std::cout << "  " << n << " = " << v << std::endl;

@@ -296,18 +296,18 @@ struct Parser::Impl
 {
     Impl()
     {
-        binary_op_info_list.push_back(BinaryOpInfo{ "+", left_associative(2), std::plus<>{} });
-        binary_op_info_list.push_back(BinaryOpInfo{ "-", left_associative(2), std::minus<>{} });
-        binary_op_info_list.push_back(BinaryOpInfo{ "*", left_associative(4), std::multiplies<>{} });
-        binary_op_info_list.push_back(BinaryOpInfo{ "/", left_associative(4), std::divides<>{} });
-        binary_op_info_list.push_back(BinaryOpInfo{ "^", right_associative(3), binary_pow });
+        binary_op_info_list.push_back(BinaryOpInfo{ "+", left_associative(20), std::plus<>{} });
+        binary_op_info_list.push_back(BinaryOpInfo{ "-", left_associative(20), std::minus<>{} });
+        binary_op_info_list.push_back(BinaryOpInfo{ "*", left_associative(40), std::multiplies<>{} });
+        binary_op_info_list.push_back(BinaryOpInfo{ "/", left_associative(40), std::divides<>{} });
+        binary_op_info_list.push_back(BinaryOpInfo{ "^", right_associative(30), binary_pow });
 
-        binary_op_info_list.push_back(BinaryOpInfo{ "==", left_associative(1), std::equal_to<>{} });
-        binary_op_info_list.push_back(BinaryOpInfo{ "!=", left_associative(1), std::not_equal_to<>{} });
-        binary_op_info_list.push_back(BinaryOpInfo{ "<", left_associative(1), std::less<>{} });
-        binary_op_info_list.push_back(BinaryOpInfo{ "<=", left_associative(1), std::less_equal<>{} });
-        binary_op_info_list.push_back(BinaryOpInfo{ ">", left_associative(1), std::greater<>{} });
-        binary_op_info_list.push_back(BinaryOpInfo{ ">=", left_associative(1), std::greater_equal<>{} });
+        binary_op_info_list.push_back(BinaryOpInfo{ "==", left_associative(10), std::equal_to<>{} });
+        binary_op_info_list.push_back(BinaryOpInfo{ "!=", left_associative(10), std::not_equal_to<>{} });
+        binary_op_info_list.push_back(BinaryOpInfo{ "<", left_associative(10), std::less<>{} });
+        binary_op_info_list.push_back(BinaryOpInfo{ "<=", left_associative(10), std::less_equal<>{} });
+        binary_op_info_list.push_back(BinaryOpInfo{ ">", left_associative(10), std::greater<>{} });
+        binary_op_info_list.push_back(BinaryOpInfo{ ">=", left_associative(10), std::greater_equal<>{} });
 
         unary_op_info_list.push_back(UnaryOpInfo{ "+", unary_pos });
         unary_op_info_list.push_back(UnaryOpInfo{ "-", std::negate<>{} });
