@@ -64,7 +64,7 @@ int main(int argc, char* argv[])
             int i = 0;
             for (const auto& entry : history.entries)
             {
-                std::cout << std::setw(2) << i++ << ". " << entry.expr << " = " << entry.result << std::endl;
+                std::cout << fg(color::dark_gray) << std::setw(2) << i++ << ". " << fg(color::dark_green) << entry.expr << fg(color::dark_blue) << " = " << entry.result << ansi::reset << std::endl;
             }
         }
         else

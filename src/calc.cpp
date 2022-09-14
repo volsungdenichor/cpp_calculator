@@ -2,12 +2,19 @@
 
 #include <algorithm>
 #include <cmath>
+#include <numeric>
 #include <optional>
 
 #include "string_utils.hpp"
 
 namespace calc
 {
+void assert(bool value)
+{
+    if (!value)
+        throw std::logic_error{ "assertion failed" };
+}
+
 std::optional<double> parse_double(std::string_view text)
 {
     try
@@ -120,6 +127,11 @@ struct FuncInfo
     Function func;
 };
 
+bool is_assignment(const BinaryOpInfo& op_info)
+{
+    return !op_info.func;
+}
+
 namespace expressions
 {
 struct Value : public Expr
@@ -168,11 +180,10 @@ struct Variable : public Expr
 
 struct UnaryOp : public Expr
 {
-    std::reference_wrapper<const UnaryOpInfo> info;
+    const UnaryOpInfo& info;
     ExprPtr sub;
 
-    UnaryOp(
-        std::reference_wrapper<const UnaryOpInfo> info, ExprPtr sub)
+    UnaryOp(const UnaryOpInfo& info, ExprPtr sub)
         : info{ info }
         , sub{ std::move(sub) }
     {
@@ -180,23 +191,23 @@ struct UnaryOp : public Expr
 
     double eval(Context& ctx) const override
     {
-        return info.get().func(sub->eval(ctx));
+        return info.func(sub->eval(ctx));
     }
 
     void print(std::ostream& os, int level) const override
     {
-        os << indent(level) << info.get().symbol << std::endl;
+        os << indent(level) << info.symbol << std::endl;
         sub->print(os, level + 1);
     }
 };
 
 struct BinaryOp : public Expr
 {
-    std::reference_wrapper<const BinaryOpInfo> info;
+    const BinaryOpInfo& info;
     ExprPtr lhs;
     ExprPtr rhs;
 
-    BinaryOp(std::reference_wrapper<const BinaryOpInfo> info, ExprPtr lhs, ExprPtr rhs)
+    BinaryOp(const BinaryOpInfo& info, ExprPtr lhs, ExprPtr rhs)
         : info{ info }
         , lhs{ std::move(lhs) }
         , rhs{ std::move(rhs) }
@@ -205,12 +216,12 @@ struct BinaryOp : public Expr
 
     double eval(Context& ctx) const override
     {
-        return info.get().func(lhs->eval(ctx), rhs->eval(ctx));
+        return info.func(lhs->eval(ctx), rhs->eval(ctx));
     }
 
     void print(std::ostream& os, int level) const override
     {
-        os << indent(level) << info.get().symbol << std::endl;
+        os << indent(level) << info.symbol << std::endl;
         lhs->print(os, level + 1);
         rhs->print(os, level + 1);
     }
@@ -218,10 +229,10 @@ struct BinaryOp : public Expr
 
 struct Func : public Expr
 {
-    std::reference_wrapper<const FuncInfo> info;
+    const FuncInfo& info;
     std::vector<ExprPtr> subs;
 
-    Func(std::reference_wrapper<const FuncInfo> info, std::vector<ExprPtr> subs)
+    Func(const FuncInfo& info, std::vector<ExprPtr> subs)
         : info{ info }
         , subs{ std::move(subs) }
     {
@@ -231,16 +242,40 @@ struct Func : public Expr
     {
         std::vector<double> args(subs.size());
         std::transform(subs.begin(), subs.end(), args.begin(), [&](const auto& expr_ptr) { return expr_ptr->eval(ctx); });
-        return info.get().func(args);
+        return info.func(args);
     }
 
     void print(std::ostream& os, int level) const override
     {
-        os << indent(level) << info.get().name << std::endl;
+        os << indent(level) << info.name << std::endl;
         for (std::size_t i = 0; i < subs.size(); ++i)
         {
             subs[i]->print(os, level + 1);
         }
+    }
+};
+
+struct Assignment : public Expr
+{
+    std::string name;
+    ExprPtr expr;
+
+    Assignment(std::string name, ExprPtr expr)
+        : name{ std::move(name) }
+        , expr{ std::move(expr) }
+    {
+    }
+
+    double eval(Context& ctx) const override
+    {
+        ctx.vars.insert_or_assign(name, expr->eval(ctx));
+        return ctx.vars.at(name);
+    }
+
+    void print(std::ostream& os, int level) const override
+    {
+        os << indent(level) << name << std::endl;
+        expr->print(os, level + 1);
     }
 };
 
@@ -259,6 +294,11 @@ static double unary_neg(double x)
 static double binary_pow(double x, double y)
 {
     return std::pow(x, y);
+}
+
+static double func_sum(const std::vector<double>& args)
+{
+    return std::accumulate(args.begin(), args.end(), 0.0);
 }
 
 static double func_sin(const std::vector<double>& args)
@@ -288,26 +328,33 @@ static double func_sqrt(const std::vector<double>& args)
 
 struct BinaryOpResult
 {
-    std::string_view::iterator iter;
+    std::string_view::iterator it;
     const BinaryOpInfo* op_info;
 };
+
+bool is_valid_variable_name(std::string_view text)
+{
+    return !text.empty() && std::all_of(text.begin(), text.end(), [](char ch) { return std::isalpha(ch) || ch == '_'; });
+}
 
 struct Parser::Impl
 {
     Impl()
     {
-        binary_op_info_list.push_back(BinaryOpInfo{ "+", left_associative(20), std::plus<>{} });
-        binary_op_info_list.push_back(BinaryOpInfo{ "-", left_associative(20), std::minus<>{} });
-        binary_op_info_list.push_back(BinaryOpInfo{ "*", left_associative(40), std::multiplies<>{} });
-        binary_op_info_list.push_back(BinaryOpInfo{ "/", left_associative(40), std::divides<>{} });
-        binary_op_info_list.push_back(BinaryOpInfo{ "^", right_associative(30), binary_pow });
-
         binary_op_info_list.push_back(BinaryOpInfo{ "==", left_associative(10), std::equal_to<>{} });
         binary_op_info_list.push_back(BinaryOpInfo{ "!=", left_associative(10), std::not_equal_to<>{} });
         binary_op_info_list.push_back(BinaryOpInfo{ "<", left_associative(10), std::less<>{} });
         binary_op_info_list.push_back(BinaryOpInfo{ "<=", left_associative(10), std::less_equal<>{} });
         binary_op_info_list.push_back(BinaryOpInfo{ ">", left_associative(10), std::greater<>{} });
         binary_op_info_list.push_back(BinaryOpInfo{ ">=", left_associative(10), std::greater_equal<>{} });
+
+        binary_op_info_list.push_back(BinaryOpInfo{ "+", left_associative(20), std::plus<>{} });
+        binary_op_info_list.push_back(BinaryOpInfo{ "-", left_associative(20), std::minus<>{} });
+        binary_op_info_list.push_back(BinaryOpInfo{ "*", left_associative(40), std::multiplies<>{} });
+        binary_op_info_list.push_back(BinaryOpInfo{ "/", left_associative(40), std::divides<>{} });
+        binary_op_info_list.push_back(BinaryOpInfo{ "^", right_associative(30), binary_pow });
+
+        binary_op_info_list.push_back(BinaryOpInfo{ "=", left_associative(5), nullptr });
 
         unary_op_info_list.push_back(UnaryOpInfo{ "+", unary_pos });
         unary_op_info_list.push_back(UnaryOpInfo{ "-", std::negate<>{} });
@@ -328,7 +375,7 @@ struct Parser::Impl
         text = simplify_parens(text);
 
         static const auto methods = std::array{ &Impl::parse_number,
-                                                &Impl::parse_binary,
+                                                &Impl::parse_binary_or_assignment,
                                                 &Impl::parse_unary,
                                                 &Impl::parse_function,
                                                 &Impl::parse_variable };
@@ -355,7 +402,7 @@ struct Parser::Impl
 
     ExprPtr parse_variable(std::string_view text) const
     {
-        if (!text.empty() && std::all_of(text.begin(), text.end(), [](char ch) { return std::isalpha(ch) || ch == '_'; }))
+        if (is_valid_variable_name(text))
         {
             return std::make_unique<expressions::Variable>(std::string{ text });
         }
@@ -370,14 +417,14 @@ struct Parser::Impl
             {
                 if (auto sub = parse_expr(make_string_view(text.begin() + op_info.symbol.size(), text.end())))
                 {
-                    return std::make_unique<expressions::UnaryOp>(std::cref(op_info), std::move(sub));
+                    return std::make_unique<expressions::UnaryOp>(op_info, std::move(sub));
                 }
             }
         }
         return nullptr;
     }
 
-    ExprPtr parse_binary(std::string_view text) const
+    ExprPtr parse_binary_or_assignment(std::string_view text) const
     {
         const auto oper_result = find_binary_oper(text);
         if (!oper_result)
@@ -385,13 +432,23 @@ struct Parser::Impl
             return nullptr;
         }
 
-        const auto [iter, op_info] = *oper_result;
+        const auto [it, op_info] = *oper_result;
 
-        auto lhs = parse_expr(make_string_view(text.begin(), iter));
-        auto rhs = parse_expr(make_string_view(iter + op_info->symbol.size(), text.end()));
-        if (lhs && rhs)
+        auto rhs = parse_expr(make_string_view(it + op_info->symbol.size(), text.end()));
+        if (!rhs)
         {
-            return std::make_unique<expressions::BinaryOp>(std::cref(*op_info), std::move(lhs), std::move(rhs));
+            return nullptr;
+        }
+
+        const auto lhs_str = trim_whitespace(make_string_view(text.begin(), it));
+
+        if (is_valid_variable_name(lhs_str) && is_assignment(*op_info))
+        {
+            return std::make_unique<expressions::Assignment>(std::string{ lhs_str }, std::move(rhs));
+        }
+        else if (auto lhs = parse_expr(lhs_str))
+        {
+            return std::make_unique<expressions::BinaryOp>(*op_info, std::move(lhs), std::move(rhs));
         }
         return nullptr;
     }
@@ -448,7 +505,7 @@ struct Parser::Impl
             }
             return subs;
         });
-        return std::make_unique<expressions::Func>(std::cref(*info), std::move(subs));
+        return std::make_unique<expressions::Func>(*info, std::move(subs));
     }
 
     std::optional<BinaryOpResult> find_binary_oper(std::string_view text) const
@@ -493,6 +550,7 @@ struct Parser::Impl
 Parser::Parser()
     : impl{ std::make_unique<Impl>() }
 {
+    register_function("sum", func_sum);
     register_function("sin", func_sin);
     register_function("cos", func_cos);
     register_function("max", func_max);
